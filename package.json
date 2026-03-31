@@ -1,0 +1,11 @@
+{
+  "name": "pi-codex-remote-compaction",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Project-local pi extension for Codex-style remote compaction on OpenAI Responses.",
+  "scripts": {
+    "compare": "node tools/compare_requests.mjs fixtures/codex/post-compaction.request.json fixtures/pi/overflow-retry.request.json",
+    "verify:auto": "node tools/verify_auto_compaction.mjs"
+  }
+}

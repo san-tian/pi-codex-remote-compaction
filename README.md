@@ -75,6 +75,8 @@ pi -C "$PWD" --no-session -p 'Reply with exactly: extension smoke ok'
 /codex-compact-probe
 ```
 
+如果后端不支持 `/responses/compact`，扩展会给出 warning，然后自动回退到默认 `pi` compaction；这表示远程 compaction 没有生效，但对话仍然可以继续。
+
 ## Update an existing install
 From the target project root:
 

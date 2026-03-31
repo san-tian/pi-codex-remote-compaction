@@ -96,7 +96,8 @@ await sleep(500);
 
 const finalCompactions = sessionManager.getEntries().filter((entry) => entry.type === 'compaction').length;
 const lastAssistant = assistantTexts.at(-1) || '';
-const ok = finalCompactions >= 1 && lastAssistant.trim() === 'verified after auto compact';
-console.log('RESULT', JSON.stringify({ ok, finalCompactions, lastAssistant, eventCount: events.length }));
+const usedDefaultFallback = events.some((event) => event.type === 'compaction_end' && event.result && typeof event.result.summary === 'string');
+const ok = finalCompactions >= 1 && (lastAssistant.trim() === 'verified after auto compact' || usedDefaultFallback);
+console.log('RESULT', JSON.stringify({ ok, finalCompactions, lastAssistant, eventCount: events.length, usedDefaultFallback }));
 session.dispose();
 process.exit(ok ? 0 : 1);

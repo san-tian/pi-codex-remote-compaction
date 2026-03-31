@@ -1,17 +1,37 @@
 # pi-codex-remote-compaction
 
-Project-local `pi` extension that keeps Codex-style remote compaction on the OpenAI Responses path without changing `pi` core.
+`pi` package for Codex-style remote compaction on the OpenAI Responses path without changing `pi` core.
 
-## What this repository is
-Clone this repository directly into a target project's `.pi/extensions/` directory. Once the folder exists at `.pi/extensions/codex-remote-compaction`, `pi` loads it automatically for that project.
+## Install with `pi`
+Recommended project-local install:
 
-This extension is strict about visibility:
-- it tries remote Codex-style compaction first
-- if remote compaction fails, it warns and falls back to default `pi` compaction
-- debug artifacts are always written to `.tmp/codex-remote-compaction/`
+```bash
+pi install -l git:https://github.com/san-tian/pi-codex-remote-compaction
+```
+
+Recommended global install:
+
+```bash
+pi install git:https://github.com/san-tian/pi-codex-remote-compaction
+```
+
+Update later with:
+
+```bash
+pi update
+```
+
+After install, `pi` loads the package automatically from settings.
+
+## What this package does
+- tries remote Codex-style compaction first
+- stores remote compact results in compaction `details`
+- rewrites the first post-compaction provider request
+- warns and falls back to default `pi` compaction if remote compaction fails
+- writes debug artifacts to `.tmp/codex-remote-compaction/`
 
 ## When it activates
-The extension is always loaded after installation, but it only takes over compaction when the active model uses the OpenAI Responses path:
+The package is loaded after installation, but it only takes over compaction when the active model uses the OpenAI Responses path:
 - model `api` is `openai-responses`
 - model has a `baseUrl`
 - backend supports `POST /responses/compact`
@@ -21,28 +41,21 @@ That means it works with:
 - OpenAI relay or proxy services
 - OpenAI-compatible middleboxes that expose both `/responses` and `/responses/compact`
 
-If the backend does not support that path, the extension shows a warning and falls back to default `pi` compaction.
+If the backend does not support that path, the package shows a warning and falls back to default `pi` compaction.
 
-## Install for a project
-From the target project root:
+## Manual install fallback
+If you do not want to use `pi install`, you can still install it as a project-local extension:
 
 ```bash
 mkdir -p .pi/extensions
 git clone https://github.com/san-tian/pi-codex-remote-compaction.git .pi/extensions/codex-remote-compaction
 ```
 
-Notes:
-- keep the folder name `codex-remote-compaction`
-- no build step is required
-- the extension is project-local, not global
-
 ## Install for a `pi` agent
-If a `pi` agent is reading this README to install the extension, it should do exactly this inside the target project:
+If a `pi` agent is reading this README to install the package for the current project, it should prefer the package flow:
 
 ```bash
-mkdir -p .pi/extensions
-if [ -d .pi/extensions/codex-remote-compaction ]; then mv .pi/extensions/codex-remote-compaction .pi/extensions/codex-remote-compaction.bak.$(date +%s); fi
-git clone https://github.com/san-tian/pi-codex-remote-compaction.git .pi/extensions/codex-remote-compaction
+pi install -l git:https://github.com/san-tian/pi-codex-remote-compaction
 ```
 
 Then verify installation:
@@ -58,16 +71,14 @@ Optional backend check inside `pi`:
 ```
 
 ## 给 pi agent 的中文安装指令
-如果你是 `pi` agent，并且用户要求你安装这个扩展，请在目标项目根目录执行以下步骤：
+如果你是 `pi` agent，并且用户要求你为当前项目安装这个扩展，优先使用 `pi package` 安装方式：
 
 ```bash
-mkdir -p .pi/extensions
-if [ -d .pi/extensions/codex-remote-compaction ]; then mv .pi/extensions/codex-remote-compaction .pi/extensions/codex-remote-compaction.bak.$(date +%s); fi
-git clone https://github.com/san-tian/pi-codex-remote-compaction.git .pi/extensions/codex-remote-compaction
+pi install -l git:https://github.com/san-tian/pi-codex-remote-compaction
 pi -C "$PWD" --no-session -p 'Reply with exactly: extension smoke ok'
 ```
 
-如果 smoke test 返回 `extension smoke ok`，说明扩展已经被 `pi` 正常加载。
+如果 smoke test 返回 `extension smoke ok`，说明包已经被 `pi` 正常加载。
 
 如果用户还要求确认后端是否支持远程 compaction，可以在 `pi` 里再执行：
 
@@ -77,13 +88,11 @@ pi -C "$PWD" --no-session -p 'Reply with exactly: extension smoke ok'
 
 如果后端不支持 `/responses/compact`，扩展会给出 warning，然后自动回退到默认 `pi` compaction；这表示远程 compaction 没有生效，但对话仍然可以继续。
 
-## Update an existing install
-From the target project root:
-
-```bash
-cd .pi/extensions/codex-remote-compaction
-git pull --ff-only
-```
+## Update and scope
+- `pi install -l ...` writes the package to the current project's `.pi/settings.json`
+- `pi install ...` writes the package to `~/.pi/agent/settings.json`
+- `pi update` updates non-pinned package installs
+- if you want to pin a version later, install from a ref such as `git:https://github.com/san-tian/pi-codex-remote-compaction@v0.1.0`
 
 ## Repository layout
 - `index.ts`: extension entrypoint and hook wiring
@@ -105,7 +114,7 @@ git pull --ff-only
 Compare the committed Codex fixture against the committed `pi` overflow fixture:
 
 ```bash
-node tools/compare_requests.mjs fixtures/codex/post-compaction.request.json fixtures/pi/overflow-retry.request.json
+npm run compare
 ```
 
 Exercise the SDK auto-compaction harness:
@@ -134,7 +143,7 @@ The committed fixtures are intentionally sanitized:
 - remote compaction failures warn and then fall back to default `pi` compaction
 
 ## Requirements
-- `pi` with project-local extension loading enabled
+- `pi` with package loading enabled
 - a model on the `openai-responses` path
 - a backend that supports `/responses` and `/responses/compact`
 - Node.js for the maintenance scripts

@@ -153,9 +153,19 @@ export default function (pi: ExtensionAPI) {
       };
     } catch (error) {
       const message = toErrorMessage(error);
-      await writeDebugFile("compact-error", { sessionKey: key, error: message });
-      if (ctx.hasUI) ctx.ui.notify(message, "error");
-      return { cancel: true };
+      const aborted = event.signal.aborted;
+      await writeDebugFile("compact-error", {
+        sessionKey: key,
+        error: message,
+        fallback: aborted ? "cancelled" : "default-pi-compaction",
+      });
+      if (aborted) {
+        if (ctx.hasUI) ctx.ui.notify(message, "warning");
+        return { cancel: true };
+      }
+      const fallbackMessage = `${message}. Falling back to default pi compaction.`;
+      if (ctx.hasUI) ctx.ui.notify(fallbackMessage, "warning");
+      return;
     }
   });
 }

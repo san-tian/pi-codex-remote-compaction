@@ -5,9 +5,9 @@ Project-local `pi` extension that keeps Codex-style remote compaction on the Ope
 ## What this repository is
 Clone this repository directly into a target project's `.pi/extensions/` directory. Once the folder exists at `.pi/extensions/codex-remote-compaction`, `pi` loads it automatically for that project.
 
-This extension is strict by design:
-- no fallback to default `pi` compaction
-- failures stay visible so mismatches can be fixed quickly
+This extension is strict about visibility:
+- it tries remote Codex-style compaction first
+- if remote compaction fails, it warns and falls back to default `pi` compaction
 - debug artifacts are always written to `.tmp/codex-remote-compaction/`
 
 ## When it activates
@@ -21,7 +21,7 @@ That means it works with:
 - OpenAI relay or proxy services
 - OpenAI-compatible middleboxes that expose both `/responses` and `/responses/compact`
 
-If the backend does not support that path, compaction fails loudly. It does not fall back.
+If the backend does not support that path, the extension shows a warning and falls back to default `pi` compaction.
 
 ## Install for a project
 From the target project root:
@@ -129,7 +129,7 @@ The committed fixtures are intentionally sanitized:
 - manual post-compaction request parity is verified
 - first overflow immediate retry request parity is verified after normalization
 - request-shape regressions can be checked against committed fixtures
-- compaction never silently falls back to default `pi`
+- remote compaction failures warn and then fall back to default `pi` compaction
 
 ## Requirements
 - `pi` with project-local extension loading enabled

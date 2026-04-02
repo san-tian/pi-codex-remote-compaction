@@ -28,6 +28,7 @@ After install, `pi` loads the package automatically from settings.
 - stores remote compact results in compaction `details`
 - rewrites the first post-compaction provider request
 - if Claude-style session memory is present, uses it as the summary base and keeps only the recent unsummarized tail before calling remote compaction
+- otherwise preserves the original remote-compaction behavior with no session-memory dependency
 - warns and falls back to default `pi` compaction if remote compaction fails
 - writes debug artifacts to `.tmp/codex-remote-compaction/`
 
@@ -43,6 +44,14 @@ That means it works with:
 - OpenAI-compatible middleboxes that expose both `/responses` and `/responses/compact`
 
 If the backend does not support that path, the package shows a warning and falls back to default `pi` compaction.
+
+## Session-memory integration
+
+This package works on its own. Installing `pi-session-memory-extension` changes its behavior only when a valid session-memory summary is available for the current session.
+
+- without `pi-session-memory-extension`: pure Codex/OpenAI remote compaction behavior
+- with `pi-session-memory-extension` installed but no usable summary yet: pure Codex/OpenAI remote compaction behavior
+- with `pi-session-memory-extension` installed and a usable summary present: memory-aware remote compaction
 
 ## Manual install fallback
 If you do not want to use `pi install`, you can still install it as a project-local extension:

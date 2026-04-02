@@ -101,6 +101,35 @@ export function filterRemoteOutputForCodexParity(output: unknown) {
   return kept;
 }
 
+export function extractRemoteSummaryText(output: unknown) {
+  if (!Array.isArray(output)) return undefined;
+
+  const parts = output
+    .filter((item) => isRecord(item) && item.type === "compaction_summary")
+    .flatMap((item) => collectSummaryParts(item))
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return parts.length > 0 ? parts.join("\n") : undefined;
+}
+
+function collectSummaryParts(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap((item) => collectSummaryParts(item));
+  if (!isRecord(value)) return [];
+
+  const parts: string[] = [];
+  for (const key of ["summary_text", "text"]) {
+    if (typeof value[key] === "string") parts.push(value[key]);
+  }
+
+  if (Array.isArray(value.summary)) parts.push(...collectSummaryParts(value.summary));
+  if (Array.isArray(value.content)) parts.push(...collectSummaryParts(value.content));
+  if (isRecord(value.text) && typeof value.text.value === "string") parts.push(value.text.value);
+
+  return parts;
+}
+
 function assistantTextBlockToOutputText(block: Record<string, unknown>) {
   return { type: "output_text", text: typeof block.text === "string" ? block.text : "", annotations: [] };
 }

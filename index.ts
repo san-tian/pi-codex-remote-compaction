@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   buildEffectiveContextInput,
+  extractRemoteSummaryText,
   filterRemoteOutputForCodexParity,
   getLastUserInputFromBranch,
   getLatestCodexCompaction,
@@ -17,6 +18,9 @@ import {
 } from "./src/types.js";
 import { isRecord, stripTransientFields, toErrorMessage } from "./src/utils.js";
 import { buildSynthesizedUserWrapper, ensureUserWrapper } from "./src/wrapper.js";
+
+const TEMPLATE_HINT =
+  "You must complete at least one normal model request in this session before remote compaction can capture the provider request template.";
 
 export default function (pi: ExtensionAPI) {
   pi.on("input", async (event, ctx) => {
@@ -54,12 +58,55 @@ export default function (pi: ExtensionAPI) {
       try {
         const result = await callRemoteCompact(ctx, request, AbortSignal.timeout(30000));
         await writeDebugFile("probe-response", result);
-        ctx.ui.notify("Codex remote compact endpoint responded successfully", "success");
+        ctx.ui.notify(
+          `Codex remote compact endpoint responded successfully. ${TEMPLATE_HINT}`,
+          "success",
+        );
       } catch (error) {
         const message = toErrorMessage(error);
         await writeDebugFile("probe-error", { error: message });
         ctx.ui.notify(message, "error");
       }
+    },
+  });
+
+  pi.registerCommand("codex-compact-show", {
+    description: "Show the latest Codex remote compaction summary without adding it to chat history",
+    handler: async (_args, ctx) => {
+      const branch = ctx.sessionManager.getBranch();
+      const latest = getLatestCodexCompaction(branch);
+      if (!latest) {
+        ctx.ui.notify("No Codex remote compaction entry found in this session yet.", "warning");
+        return;
+      }
+
+      const details = latest.details;
+      const remoteOutput = isRecord(details.remoteResult) ? details.remoteResult.output : undefined;
+      const summary = extractRemoteSummaryText(remoteOutput) ?? latest.summary;
+
+      if (!summary || summary === PLACEHOLDER_SUMMARY) {
+        ctx.ui.notify(
+          "The latest remote compaction does not contain a readable summary text; the backend only returned a non-displayable summary payload.",
+          "warning",
+        );
+        return;
+      }
+
+      await ctx.ui.editor("Codex Remote Compaction Summary", summary);
+    },
+  });
+
+  pi.registerCommand("codex-compact-show-raw", {
+    description: "Show the raw payload from the latest Codex remote compaction without adding it to chat history",
+    handler: async (_args, ctx) => {
+      const branch = ctx.sessionManager.getBranch();
+      const latest = getLatestCodexCompaction(branch);
+      if (!latest) {
+        ctx.ui.notify("No Codex remote compaction entry found in this session yet.", "warning");
+        return;
+      }
+
+      await ctx.ui.editor("Codex Remote Compaction Raw", JSON.stringify(latest.details.remoteResult, null, 2));
     },
   });
 
@@ -99,7 +146,9 @@ export default function (pi: ExtensionAPI) {
     try {
       const template = templateCache.get(key);
       if (!template) {
-        throw new Error(`${COMPACTION_ERROR_PREFIX}: no cached provider request template available yet`);
+        throw new Error(
+          `${COMPACTION_ERROR_PREFIX}: no cached provider request template available yet. ${TEMPLATE_HINT}`,
+        );
       }
       const model = ctx.model;
       if (!model) throw new Error(`${COMPACTION_ERROR_PREFIX}: no active model selected`);
@@ -129,6 +178,7 @@ export default function (pi: ExtensionAPI) {
       const remoteResult = await callRemoteCompact(ctx, request, event.signal);
       await writeDebugFile("compact-response", { sessionKey: key, remoteResult });
       const normalizedOutput = filterRemoteOutputForCodexParity((remoteResult as { output: unknown[] }).output);
+      const summary = extractRemoteSummaryText((remoteResult as { output: unknown[] }).output) ?? PLACEHOLDER_SUMMARY;
       const details: CodexRemoteCompactionDetails = {
         version: DETAILS_VERSION,
         inputBase: normalizedOutput,
@@ -145,7 +195,7 @@ export default function (pi: ExtensionAPI) {
       };
       return {
         compaction: {
-          summary: PLACEHOLDER_SUMMARY,
+          summary,
           firstKeptEntryId: event.preparation.firstKeptEntryId,
           tokensBefore: event.preparation.tokensBefore,
           details,

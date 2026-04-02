@@ -70,6 +70,13 @@ Optional backend check inside `pi`:
 /codex-compact-probe
 ```
 
+View the latest remote compaction summary or raw response without inserting a chat message:
+
+```text
+/codex-compact-show
+/codex-compact-show-raw
+```
+
 ## 给 pi agent 的中文安装指令
 如果你是 `pi` agent，并且用户要求你为当前项目安装这个扩展，优先使用 `pi package` 安装方式：
 
@@ -84,6 +91,13 @@ pi -C "$PWD" --no-session -p 'Reply with exactly: extension smoke ok'
 
 ```text
 /codex-compact-probe
+```
+
+如果用户想查看最近一次远程 compaction 的摘要或原始返回，而不把结果写进对话历史，可以执行：
+
+```text
+/codex-compact-show
+/codex-compact-show-raw
 ```
 
 如果后端不支持 `/responses/compact`，扩展会给出 warning，然后自动回退到默认 `pi` compaction；这表示远程 compaction 没有生效，但对话仍然可以继续。

@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
+import { getPiProjectSubdir } from "@san-tian/pi-project-paths";
 import type { ExtensionContext, SessionEntry } from "@mariozechner/pi-coding-agent";
-import { entryToMessages, getEntriesAfter, agentMessagesToCodexInput } from "./codex-input.js";
+import { entryToMessages, agentMessagesToCodexInput } from "./codex-input.js";
 
 const STATE_ENTRY_TYPE = "session-memory-state";
 const COMPACT_CONFIG = {
@@ -68,7 +68,7 @@ export async function buildSessionMemoryCompactInput(
 
   const state = getSessionMemoryState(branchEntries);
   const firstKeptEntryId = deriveFirstKeptEntryId(branchEntries, defaultFirstKeptEntryId, state.lastSummarizedEntryId);
-  const tailEntries = getEntriesAfter(branchEntries, firstKeptEntryId);
+  const tailEntries = getEntriesFrom(branchEntries, firstKeptEntryId);
   const tailInput = agentMessagesToCodexInput(entryToMessages(tailEntries));
   const input = [{ type: "compaction_summary", summary_text: summaryText }, ...tailInput];
 
@@ -96,12 +96,7 @@ function getSessionMemoryState(entries: SessionEntry[]): SessionMemoryState {
 
 function getSessionMemoryPath(ctx: ExtensionContext): string {
   return path.join(
-    homedir(),
-    ".pi",
-    "projects",
-    sanitizeProjectPath(ctx.sessionManager.getCwd()),
-    ctx.sessionManager.getSessionId(),
-    "session-memory",
+    getPiProjectSubdir(ctx.sessionManager.getCwd(), ctx.sessionManager.getSessionId(), "session-memory"),
     "summary.md",
   );
 }
@@ -119,13 +114,10 @@ async function readSessionMemorySummary(filePath: string): Promise<string | null
   }
 }
 
-function sanitizeProjectPath(cwd: string): string {
-  return cwd
-    .replace(/^[A-Za-z]:/, (match) => match[0].toLowerCase())
-    .replace(/[\\/]+/g, "-")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "") || "root";
+function getEntriesFrom(entries: SessionEntry[], entryId: string) {
+  const index = entries.findIndex((entry) => entry.id === entryId);
+  if (index === -1) return [] as SessionEntry[];
+  return entries.slice(index);
 }
 
 function deriveFirstKeptEntryId(entries: SessionEntry[], defaultEntryId: string, lastSummarizedEntryId?: string): string {

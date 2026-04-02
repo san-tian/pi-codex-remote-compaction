@@ -18,6 +18,7 @@ import {
 } from "./src/types.js";
 import { isRecord, stripTransientFields, toErrorMessage } from "./src/utils.js";
 import { buildSynthesizedUserWrapper, ensureUserWrapper } from "./src/wrapper.js";
+import { buildSessionMemoryCompactInput } from "./src/session-memory.js";
 
 const TEMPLATE_HINT =
   "You must complete at least one normal model request in this session before remote compaction can capture the provider request template.";
@@ -152,7 +153,13 @@ export default function (pi: ExtensionAPI) {
       }
       const model = ctx.model;
       if (!model) throw new Error(`${COMPACTION_ERROR_PREFIX}: no active model selected`);
-      const input = buildEffectiveContextInput(event.branchEntries);
+      const sessionMemoryCompact = await buildSessionMemoryCompactInput(
+        ctx,
+        event.branchEntries,
+        event.preparation.firstKeptEntryId,
+      );
+      const input = sessionMemoryCompact?.input ?? buildEffectiveContextInput(event.branchEntries);
+      const firstKeptEntryId = sessionMemoryCompact?.firstKeptEntryId ?? event.preparation.firstKeptEntryId;
       const synthesizedWrapper = await buildSynthesizedUserWrapper(ctx);
       const prefixInput = ensureUserWrapper(template.remotePrefixInput, synthesizedWrapper);
       const request: Record<string, unknown> = {
@@ -173,6 +180,13 @@ export default function (pi: ExtensionAPI) {
           isIdle: ctx.isIdle(),
           hasPendingMessages: ctx.hasPendingMessages(),
           branchTailTypes: event.branchEntries.slice(-6).map((entry) => entry.type),
+          sessionMemory: sessionMemoryCompact
+            ? {
+                notesPath: sessionMemoryCompact.notesPath,
+                lastSummarizedEntryId: sessionMemoryCompact.lastSummarizedEntryId,
+                firstKeptEntryId: sessionMemoryCompact.firstKeptEntryId,
+              }
+            : null,
         },
       });
       const remoteResult = await callRemoteCompact(ctx, request, event.signal);
@@ -192,11 +206,20 @@ export default function (pi: ExtensionAPI) {
         },
         remoteRequest: request,
         remoteResult,
+        ...(sessionMemoryCompact
+          ? {
+              sessionMemory: {
+                notesPath: sessionMemoryCompact.notesPath,
+                lastSummarizedEntryId: sessionMemoryCompact.lastSummarizedEntryId,
+                firstKeptEntryId: sessionMemoryCompact.firstKeptEntryId,
+              },
+            }
+          : {}),
       };
       return {
         compaction: {
           summary,
-          firstKeptEntryId: event.preparation.firstKeptEntryId,
+          firstKeptEntryId,
           tokensBefore: event.preparation.tokensBefore,
           details,
         },

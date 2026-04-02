@@ -27,6 +27,7 @@ After install, `pi` loads the package automatically from settings.
 - tries remote Codex-style compaction first
 - stores remote compact results in compaction `details`
 - rewrites the first post-compaction provider request
+- if Claude-style session memory is present, uses it as the summary base and keeps only the recent unsummarized tail before calling remote compaction
 - warns and falls back to default `pi` compaction if remote compaction fails
 - writes debug artifacts to `.tmp/codex-remote-compaction/`
 

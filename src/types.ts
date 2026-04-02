@@ -15,6 +15,11 @@ export type CodexRemoteCompactionDetails = {
   };
   remoteRequest: unknown;
   remoteResult: unknown;
+  sessionMemory?: {
+    notesPath: string;
+    lastSummarizedEntryId?: string;
+    firstKeptEntryId: string;
+  };
 };
 
 export type CachedTemplate = {

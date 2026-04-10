@@ -10,7 +10,7 @@
   },
   "keywords": ["pi-package"],
   "dependencies": {
-    "@san-tian/pi-project-paths": "https://codeload.github.com/san-tian/pi-project-paths/tar.gz/refs/heads/main"
+    "@san-tian/pi-project-paths": "file:../pi-project-paths"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"

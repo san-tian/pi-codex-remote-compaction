@@ -9,11 +9,19 @@ import {
 import { writeDebugFile } from "./src/debug.js";
 import { buildOverriddenPayload, captureTemplate } from "./src/provider-request.js";
 import { callRemoteCompact } from "./src/remote-client.js";
-import { pendingUserInputCache, resetSessionState, sessionKey, templateCache } from "./src/state.js";
+import {
+  pendingUserInputCache,
+  remoteCompactCapabilityKey,
+  remoteCompactUnavailableCache,
+  resetSessionState,
+  sessionKey,
+  templateCache,
+} from "./src/state.js";
 import {
   COMPACTION_ERROR_PREFIX,
   DETAILS_VERSION,
   PLACEHOLDER_SUMMARY,
+  isRemoteCompactUnavailableError,
   type CodexRemoteCompactionDetails,
 } from "./src/types.js";
 import { isRecord, stripTransientFields, toErrorMessage } from "./src/utils.js";
@@ -48,13 +56,16 @@ export default function (pi: ExtensionAPI) {
       }
       const request = {
         model: model.id,
-        instructions: ctx.getSystemPrompt(),
         input: [
-          { role: "user", content: [{ type: "input_text", text: "probe" }] },
-          { type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: "probe", annotations: [] }] },
+          { role: "user", content: "probe" },
+          {
+            id: "msg_probe_001",
+            type: "message",
+            role: "assistant",
+            status: "completed",
+            content: [{ type: "output_text", text: "probe", annotations: [], logprobs: [] }],
+          },
         ],
-        tools: [],
-        parallel_tool_calls: true,
       };
       try {
         const result = await callRemoteCompact(ctx, request, AbortSignal.timeout(30000));
@@ -144,6 +155,8 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_before_compact", async (event, ctx) => {
     const key = sessionKey(ctx);
+    const capabilityKey = remoteCompactCapabilityKey(ctx);
+    if (remoteCompactUnavailableCache.has(capabilityKey)) return;
     try {
       const template = templateCache.get(key);
       if (!template) {
@@ -165,12 +178,7 @@ export default function (pi: ExtensionAPI) {
       const request: Record<string, unknown> = {
         model: model.id,
         input: [...prefixInput, ...input],
-        instructions: ctx.getSystemPrompt(),
-        tools: template.tools ?? [],
-        parallel_tool_calls: template.parallelToolCalls ?? true,
       };
-      if (template.reasoning) request.reasoning = template.reasoning;
-      if (template.text) request.text = template.text;
       await writeDebugFile("compact-request", {
         sessionKey: key,
         request,
@@ -227,16 +235,20 @@ export default function (pi: ExtensionAPI) {
     } catch (error) {
       const message = toErrorMessage(error);
       const aborted = event.signal.aborted;
+      const unavailable = isRemoteCompactUnavailableError(error);
+      if (unavailable) remoteCompactUnavailableCache.set(capabilityKey, message);
       await writeDebugFile("compact-error", {
         sessionKey: key,
         error: message,
-        fallback: aborted ? "cancelled" : "default-pi-compaction",
+        fallback: aborted ? "cancelled" : unavailable ? "default-pi-compaction-disabled-remote" : "default-pi-compaction",
       });
       if (aborted) {
         if (ctx.hasUI) ctx.ui.notify(message, "warning");
         return { cancel: true };
       }
-      const fallbackMessage = `${message}. Falling back to default pi compaction.`;
+      const fallbackMessage = unavailable
+        ? `${message}. Falling back to default pi compaction for this session.`
+        : `${message}. Falling back to default pi compaction.`;
       if (ctx.hasUI) ctx.ui.notify(fallbackMessage, "warning");
       return;
     }

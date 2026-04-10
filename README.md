@@ -27,9 +27,12 @@ After install, `pi` loads the package automatically from settings.
 - tries remote Codex-style compaction first
 - stores remote compact results in compaction `details`
 - rewrites the first post-compaction provider request
+- sends a standard item-only `/responses/compact` body (`model` + `input`) instead of Pi-specific top-level compaction fields
+- normalizes legacy provider `compaction_summary` output items back into standard `compaction` items before the next `/responses` call
 - if Claude-style session memory is present, uses it as the summary base and keeps only the recent unsummarized tail before calling remote compaction
 - otherwise preserves the original remote-compaction behavior with no session-memory dependency
 - warns and falls back to default `pi` compaction if remote compaction fails
+- if `/responses/compact` is unavailable, disables remote compaction for the rest of the session after the first warning
 - writes debug artifacts to `.tmp/codex-remote-compaction/`
 
 ## When it activates
@@ -43,7 +46,7 @@ That means it works with:
 - OpenAI relay or proxy services
 - OpenAI-compatible middleboxes that expose both `/responses` and `/responses/compact`
 
-If the backend does not support that path, the package shows a warning and falls back to default `pi` compaction.
+If the backend does not support that path, the package shows a warning, falls back to default `pi` compaction, and skips remote compaction attempts for the rest of the session.
 
 ## Session-memory integration
 
@@ -162,9 +165,11 @@ The committed fixtures are intentionally sanitized:
 
 ## Current guarantees
 - manual post-compaction request parity is verified
+- standalone compact requests now use the standard OpenAI/Codex `model` + `input` request shape
 - first overflow immediate retry request parity is verified after normalization
 - request-shape regressions can be checked against committed fixtures
 - remote compaction failures warn and then fall back to default `pi` compaction
+- endpoint-unavailable failures stop retrying remote compaction for the rest of the session
 
 ## Requirements
 - `pi` with package loading enabled

@@ -78,25 +78,23 @@ export function filterRemoteOutputForCodexParity(output: unknown) {
     throw new Error(`${COMPACTION_ERROR_PREFIX}: remote output is not an array`);
   }
   const kept: Record<string, unknown>[] = [];
+  let hasCompactionItem = false;
   for (const item of output) {
     if (!isRecord(item)) {
       throw new Error(`${COMPACTION_ERROR_PREFIX}: unsupported compact output item shape`);
     }
     const type = typeof item.type === "string" ? item.type : "message";
-    if (
-      type === "message" ||
-      type === "reasoning" ||
-      type === "function_call" ||
-      type === "function_call_output" ||
-      type === "compaction_summary"
-    ) {
-      if (type === "compaction_summary") kept.push(item);
-      continue;
+    if (type === "compaction" || type === "compaction_summary") {
+      hasCompactionItem = true;
     }
-    throw new Error(`${COMPACTION_ERROR_PREFIX}: unsupported compact output item type "${type}" in strict mode`);
+    const normalized = stripTransientFields(item) as Record<string, unknown>;
+    if (type === "compaction_summary") {
+      normalized.type = "compaction";
+    }
+    kept.push(normalized);
   }
-  if (kept.length === 0) {
-    throw new Error(`${COMPACTION_ERROR_PREFIX}: remote output did not contain a compaction_summary item`);
+  if (!hasCompactionItem) {
+    throw new Error(`${COMPACTION_ERROR_PREFIX}: remote output did not contain a compaction item`);
   }
   return kept;
 }
@@ -131,7 +129,12 @@ function collectSummaryParts(value: unknown): string[] {
 }
 
 function assistantTextBlockToOutputText(block: Record<string, unknown>) {
-  return { type: "output_text", text: typeof block.text === "string" ? block.text : "", annotations: [] };
+  return {
+    type: "output_text",
+    text: typeof block.text === "string" ? block.text : "",
+    annotations: [],
+    logprobs: [],
+  };
 }
 
 function userTextBlockToInputText(block: Record<string, unknown>) {
@@ -170,7 +173,13 @@ export function agentMessagesToCodexInput(messages: Record<string, unknown>[]) {
             return [];
           })
         : [];
-      items.push({ role: "user", content });
+      const textOnly =
+        content.length > 0 &&
+        content.every((block) => isRecord(block) && block.type === "input_text" && typeof block.text === "string");
+      items.push({
+        role: "user",
+        content: textOnly ? content.map((block) => String((block as Record<string, unknown>).text ?? "")).join("\n") : content,
+      });
       continue;
     }
     if (message.role === "assistant") {

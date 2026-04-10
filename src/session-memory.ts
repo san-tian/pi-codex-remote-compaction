@@ -55,6 +55,13 @@ export type SessionMemoryCompactInput = {
   lastSummarizedEntryId?: string;
 };
 
+function buildSessionMemorySummaryInput(summaryText: string) {
+  return {
+    role: "user",
+    content: `Session memory summary for prior turns:\n\n${summaryText}`,
+  };
+}
+
 export async function buildSessionMemoryCompactInput(
   ctx: ExtensionContext,
   branchEntries: SessionEntry[],
@@ -70,7 +77,7 @@ export async function buildSessionMemoryCompactInput(
   const firstKeptEntryId = deriveFirstKeptEntryId(branchEntries, defaultFirstKeptEntryId, state.lastSummarizedEntryId);
   const tailEntries = getEntriesFrom(branchEntries, firstKeptEntryId);
   const tailInput = agentMessagesToCodexInput(entryToMessages(tailEntries));
-  const input = [{ type: "compaction_summary", summary_text: summaryText }, ...tailInput];
+  const input = [buildSessionMemorySummaryInput(summaryText), ...tailInput];
 
   return {
     input,

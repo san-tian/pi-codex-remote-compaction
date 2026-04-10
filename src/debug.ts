@@ -3,6 +3,7 @@ import path from "node:path";
 import { DEBUG_DIR } from "./utils.js";
 
 export async function writeDebugFile(name: string, data: unknown) {
+  if (!process.env.CODEX_COMPACTION_DEBUG) return;
   const debugDir = path.resolve(process.cwd(), DEBUG_DIR);
   await fs.mkdir(debugDir, { recursive: true });
   const file = path.join(debugDir, `${Date.now()}-${name}.json`);

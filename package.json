@@ -10,7 +10,7 @@
   },
   "keywords": ["pi-package"],
   "dependencies": {
-    "@san-tian/pi-project-paths": "file:../pi-project-paths"
+    "@san-tian/pi-project-paths": "git+https://github.com/san-tian/pi-project-paths.git"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"

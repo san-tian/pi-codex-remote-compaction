@@ -31,7 +31,8 @@ After install, `pi` loads the package automatically from settings.
 - normalizes legacy provider `compaction_summary` output items back into standard `compaction` items before the next `/responses` call
 - if Claude-style session memory is present, uses it as the summary base and keeps only the recent unsummarized tail before calling remote compaction
 - otherwise preserves the original remote-compaction behavior with no session-memory dependency
-- warns and falls back to default `pi` compaction if remote compaction fails
+- retries transient `/responses/compact` gateway failures (`502`/`503`/`504`) up to 3 times before falling back
+- warns and falls back to default `pi` compaction if remote compaction still fails
 - if `/responses/compact` is unavailable, disables remote compaction for the rest of the session after the first warning
 - writes debug artifacts to `.tmp/codex-remote-compaction/`
 
@@ -168,6 +169,7 @@ The committed fixtures are intentionally sanitized:
 - standalone compact requests now use the standard OpenAI/Codex `model` + `input` request shape
 - first overflow immediate retry request parity is verified after normalization
 - request-shape regressions can be checked against committed fixtures
+- transient remote compaction gateway failures (`502`/`503`/`504`) retry up to 3 times before warning
 - remote compaction failures warn and then fall back to default `pi` compaction
 - endpoint-unavailable failures stop retrying remote compaction for the rest of the session
 
